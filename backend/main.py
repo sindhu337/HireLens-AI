@@ -993,7 +993,7 @@ def get_screening_questions(jd_id: Optional[str] = None):
 # -------------------------------------------------------------
 
 @app.get("/api/market/insights")
-def get_market_insights(jd_id: Optional[str] = None):
+def get_market_insights(jd_id: Optional[str] = None, refresh: Optional[bool] = False):
     conn = database.get_connection()
     c = conn.cursor()
 
@@ -1010,16 +1010,21 @@ def get_market_insights(jd_id: Optional[str] = None):
     jd_data = dict(jd_row)
     jd_data["required_skills"] = json.loads(jd_data["required_skills"]) if jd_data["required_skills"] else []
 
-    c.execute("SELECT * FROM market_insights WHERE jd_id = ?", (jd_data["id"],))
-    cached = c.fetchone()
+    if refresh:
+        c.execute("DELETE FROM market_insights WHERE jd_id = ?", (jd_data["id"],))
+        conn.commit()
+        cached = None
+    else:
+        c.execute("SELECT * FROM market_insights WHERE jd_id = ?", (jd_data["id"],))
+        cached = c.fetchone()
 
     if cached:
         insights = json.loads(cached["insights_json"])
     else:
-        insights = ai_service.generate_market_insights(jd_data)
+        insights = ai_service.generate_market_insights(jd_data, force_refresh=bool(refresh))
         m_id = f"mi_{uuid.uuid4().hex[:8]}"
         c.execute(
-            "INSERT INTO market_insights (id, jd_id, insights_json) VALUES (?, ?, ?)",
+            "INSERT OR REPLACE INTO market_insights (id, jd_id, insights_json) VALUES (?, ?, ?)",
             (m_id, jd_data["id"], json.dumps(insights))
         )
         conn.commit()
@@ -1027,6 +1032,10 @@ def get_market_insights(jd_id: Optional[str] = None):
     conn.close()
     insights["jd_id"] = jd_data["id"]
     return insights
+
+@app.post("/api/market/insights/refresh")
+def refresh_market_insights(jd_id: Optional[str] = None):
+    return get_market_insights(jd_id=jd_id, refresh=True)
 
 # -------------------------------------------------------------
 # SEARCH STRINGS GENERATOR (NAUKRI & LINKEDIN)

@@ -206,6 +206,22 @@ export interface MarketInsights {
     similar_title: string;
     location: string;
     typical_stack: string;
+    direct_job_url?: string;
+    career_url?: string;
+  }>;
+  live_job_searches?: Array<{
+    board: string;
+    label: string;
+    url: string;
+    icon_name?: string;
+    badge?: string;
+  }>;
+  live_openings_sample?: Array<{
+    title: string;
+    company: string;
+    location: string;
+    url: string;
+    source: string;
   }>;
   comparable_employers?: Array<{
     name: string;
@@ -402,8 +418,11 @@ export const api = {
       `/screening/questions${q}`
     );
   },
-  getMarketInsights: (jdId?: string) => {
-    const q = jdId ? `?jd_id=${encodeURIComponent(jdId)}` : '';
+  getMarketInsights: (jdId?: string, refresh?: boolean) => {
+    const params = new URLSearchParams();
+    if (jdId) params.set('jd_id', jdId);
+    if (refresh) params.set('refresh', 'true');
+    const q = params.toString() ? `?${params.toString()}` : '';
     return request<MarketInsights>(`/market/insights${q}`);
   },
   getSearchStrings: (jdId?: string) => {

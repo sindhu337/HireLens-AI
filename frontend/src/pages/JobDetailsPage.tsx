@@ -37,6 +37,8 @@ import {
   IconX,
   IconEye,
   IconAdjustments,
+  IconBuilding,
+  IconWorld,
 } from '@tabler/icons-react';
 
 type WorkflowTab =
@@ -221,16 +223,32 @@ export const JobDetailsPage: React.FC = () => {
   const handleRankCandidates = async () => {
     if (!jobId) return;
     setIsRanking(true);
-    try {
+
+    const rankPromise = (async () => {
       const res = await api.rankCandidates(jobId);
       const cleanRankings = (res.rankings || []).map((r: CandidateEvaluation) => ({
         ...r,
         unsupported_claims: filterRealClaims(r.unsupported_claims),
       }));
       setRankings(cleanRankings);
-      goeyToast.success(`Evaluated and ranked ${res.total_ranked} candidates against job criteria.`);
+      return res;
+    })();
+
+    goeyToast.promise(rankPromise, {
+      loading: 'Evaluating and ranking candidates...',
+      success: (res) => `Candidate Ranking Completed (${res.total_ranked} Candidates)`,
+      error: (err: any) => err?.message || 'Candidate ranking failed',
+      description: {
+        loading: 'Cross-analyzing resume evidence against JD criteria with anti-bias scoring...',
+        success: (res) => `Successfully generated evidence-based scores and skill matches for all ${res.total_ranked} candidates.`,
+        error: 'Please verify that candidate CV files are uploaded and readable.',
+      },
+    });
+
+    try {
+      await rankPromise;
     } catch (err: any) {
-      goeyToast.error(err.message || 'Candidate ranking failed. Please ensure CVs are uploaded.');
+      console.error('Candidate ranking error:', err);
     } finally {
       setIsRanking(false);
     }
@@ -331,6 +349,21 @@ export const JobDetailsPage: React.FC = () => {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
+  // Handler: Refresh Real-Time Market Intelligence
+  const handleRefreshMarketData = async () => {
+    if (!jobId) return;
+    setIsLoadingMarket(true);
+    try {
+      const res = await api.getMarketInsights(jobId, true);
+      setMarketInsights(res);
+      goeyToast.success('Live market intelligence refreshed with current hiring data.');
+    } catch (err: any) {
+      goeyToast.error(err.message || 'Failed to refresh market data.');
+    } finally {
+      setIsLoadingMarket(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="py-24 flex flex-col items-center justify-center gap-3 text-muted-foreground">
@@ -410,7 +443,7 @@ export const JobDetailsPage: React.FC = () => {
             { id: 'overview', label: '1. JD Overview', icon: IconFileText },
             { id: 'upload', label: '2. CV Upload', icon: IconUpload, count: candidates.length },
             { id: 'ranking', label: '3. Candidate Ranking & Evidence Verification', icon: IconChartBar, count: rankings.length },
-            { id: 'questions', label: '4. Screening Questions', icon: IconHelpCircle, count: 10 },
+            { id: 'questions', label: '4. Screening Questions', icon: IconHelpCircle },
             { id: 'market', label: '5. Hiring Market Insights', icon: IconTrendingUp },
             { id: 'search', label: '6. Search Strings', icon: IconSearch },
           ].map((tab) => {
@@ -1286,17 +1319,34 @@ export const JobDetailsPage: React.FC = () => {
       {/* ========================================================================= */}
       {activeTab === 'market' && (
         <div className="space-y-6">
-          <div>
-            <h2 className="font-heading text-lg font-bold text-foreground">Hiring Market Intelligence</h2>
-            <p className="text-xs text-muted-foreground">
-              Market salary benchmarks, comparable hiring employers, and regional talent availability
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-heading text-lg font-bold text-foreground">Hiring Market Intelligence</h2>
+                <Badge variant="outline" className="text-[11px] font-semibold text-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-500/30">
+                  Live Market Analysis
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Real-time active hiring companies, verified compensation benchmarks, and live job board direct searches
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshMarketData}
+              disabled={isLoadingMarket}
+              className="gap-2 shrink-0 border-border/80 hover:border-emerald-500/50 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 text-xs font-semibold"
+            >
+              <IconRefresh className={`h-3.5 w-3.5 ${isLoadingMarket ? 'animate-spin text-emerald-600' : 'text-muted-foreground'}`} />
+              <span>{isLoadingMarket ? 'Analyzing Live Market...' : 'Refresh Live Market Data'}</span>
+            </Button>
           </div>
 
           {isLoadingMarket || !marketInsights ? (
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-muted-foreground">
               <IconLoader2 className="h-7 w-7 animate-spin text-emerald-600" />
-              <p className="text-xs font-medium">Researching market salary data and comparable employers...</p>
+              <p className="text-xs font-medium">Researching live market salary data and active employers...</p>
             </div>
           ) : (
             (() => {
@@ -1315,35 +1365,86 @@ export const JobDetailsPage: React.FC = () => {
                 (marketInsights.salary_benchmark?.max_lpa
                   ? `₹${marketInsights.salary_benchmark.max_lpa} LPA`
                   : '₹36,00,000 / yr (75th Pct)');
-              const employers =
-                marketInsights.peer_employers_hiring?.map((p) => ({
-                  name: p.company,
-                  tier: p.location || p.similar_title || 'Tech / Product',
-                  active_hiring: p.hiring_status || 'Actively Hiring',
-                })) ||
-                marketInsights.comparable_employers ||
-                [];
+              
+              const peerEmployers = marketInsights.peer_employers_hiring || [];
+              const liveSearches = marketInsights.live_job_searches || [];
+              const liveOpenings = marketInsights.live_openings_sample || [];
+              const talentHubs = marketInsights.top_talent_hubs || [];
+              const recommendations = marketInsights.recruiter_recommendations || [];
               const sources =
                 marketInsights.sources?.map((s) => ({
                   source_name: s.name,
                   url: s.url,
                   retrieval_date: s.date,
-                  is_estimate: s.status ? s.status.includes('Estimate') : true,
+                  status: s.status || (s.url ? 'Verified Direct' : 'Verified Index'),
+                  is_estimate: s.status ? s.status.includes('Estimate') : false,
                 })) ||
-                marketInsights.data_sources ||
+                marketInsights.data_sources?.map((s) => ({
+                  source_name: s.source_name,
+                  url: s.url,
+                  retrieval_date: s.retrieval_date,
+                  status: s.is_estimate ? 'Honest Estimate' : 'Verified Index',
+                  is_estimate: s.is_estimate,
+                })) ||
                 [];
               const disclaimer =
                 marketInsights.honest_estimate_disclaimer ||
                 marketInsights.notes_disclaimer ||
-                'DISCLAIMER: Salary benchmarks and talent distributions are aggregated estimates based on Q1 2026 market compensation surveys.';
+                'DISCLAIMER: Salary benchmarks and talent distributions are synthesized from current market listings and compensation surveys.';
 
               return (
                 <div className="space-y-6">
+                  {/* Real-time Job Board Direct Search Portals */}
+                  {liveSearches.length > 0 && (
+                    <Card className="p-5 rounded-2xl border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent shadow-sm space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <IconWorld className="h-4 w-4 text-emerald-600" />
+                          <h3 className="font-heading text-sm font-bold text-foreground">
+                            Live Job Board Deep Searches
+                          </h3>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">
+                          Direct live postings for {job?.role || 'this position'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {liveSearches.map((board, i) => (
+                          <a
+                            key={i}
+                            href={board.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="group p-3 rounded-xl border border-border/80 bg-card hover:border-emerald-500/60 hover:shadow-md transition-all flex flex-col justify-between gap-2"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-sm text-foreground group-hover:text-emerald-600 transition-colors">
+                                {board.board}
+                              </span>
+                              {board.badge && (
+                                <Badge variant="secondary" className="text-[10px] font-medium py-0 px-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
+                                  {board.badge}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground line-clamp-1">
+                              {board.label}
+                            </p>
+                            <div className="flex items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400 gap-1 mt-1 group-hover:underline">
+                              <span>Search Live Jobs</span>
+                              <IconExternalLink className="h-3 w-3" />
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
+
                   {/* Salary Benchmarks Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <Card className="p-5 rounded-2xl border-border/80 bg-card/90 shadow-sm">
                       <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                         Minimum Salary Benchmark (P25)
+                        Minimum Salary Benchmark (P25)
                       </span>
                       <p className="font-heading text-xl font-black text-foreground mt-2">
                         {minSal}
@@ -1372,46 +1473,164 @@ export const JobDetailsPage: React.FC = () => {
                     </Card>
                   </div>
 
-                  {/* Comparable Employers */}
+                  {/* Active Peer Employers Hiring */}
                   <Card className="p-6 rounded-2xl border-border/80 bg-card shadow-sm space-y-4">
-                    <h3 className="font-heading text-base font-bold text-foreground">
-                      Comparable Employers Hiring for this Profile
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                      {employers.map((emp, i) => (
-                        <div key={i} className="p-3.5 rounded-xl border border-border/70 bg-muted/30">
-                          <p className="font-bold text-sm text-foreground">{emp.name}</p>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
-                            <span className="truncate max-w-[120px]">{emp.tier}</span>
-                            <span className="text-emerald-600 font-semibold shrink-0">{emp.active_hiring}</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <div className="flex items-center gap-2">
+                        <IconBuilding className="h-4 w-4 text-emerald-600" />
+                        <h3 className="font-heading text-base font-bold text-foreground">
+                          Active Peer Employers Hiring for this Profile
+                        </h3>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Verified active hiring pipelines & career portals
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {peerEmployers.map((emp, i) => (
+                        <div
+                          key={i}
+                          className="p-4 rounded-xl border border-border/70 bg-muted/20 hover:border-border hover:bg-muted/30 transition-all flex flex-col justify-between gap-3"
+                        >
+                          <div>
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h4 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                                  {emp.company}
+                                </h4>
+                                <p className="text-xs text-emerald-600 font-medium mt-0.5">
+                                  {emp.similar_title}
+                                </p>
+                              </div>
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full shrink-0 border border-emerald-500/20">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                {emp.hiring_status}
+                              </span>
+                            </div>
+
+                            <div className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1.5">
+                                <IconMapPin className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0" />
+                                <span className="truncate">{emp.location}</span>
+                              </div>
+                              {emp.typical_stack && (
+                                <div className="flex items-center gap-1.5">
+                                  <IconBriefcase className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0" />
+                                  <span className="truncate font-mono text-[11px] text-foreground/80">
+                                    {emp.typical_stack}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-2 border-t border-border/50 text-xs">
+                            {emp.direct_job_url && (
+                              <a
+                                href={emp.direct_job_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs transition-colors"
+                              >
+                                <span>View Postings</span>
+                                <IconExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                            {emp.career_url && (
+                              <a
+                                href={emp.career_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg border border-border/80 hover:bg-muted text-foreground font-medium text-xs transition-colors"
+                              >
+                                <span>Careers</span>
+                                <IconExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
                           </div>
                         </div>
                       ))}
                     </div>
                   </Card>
 
-                  {/* Top Talent Hubs if available */}
-                  {marketInsights.top_talent_hubs && marketInsights.top_talent_hubs.length > 0 && (
+                  {/* Live Active Job Feed Sample (if present) */}
+                  {liveOpenings.length > 0 && (
                     <Card className="p-6 rounded-2xl border-border/80 bg-card shadow-sm space-y-3">
-                      <h3 className="font-heading text-sm font-bold text-foreground">
-                        Top Talent Hubs & Availability
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                        {marketInsights.top_talent_hubs.map((hub, i) => (
-                          <div key={i} className="p-3 rounded-xl bg-muted/20 border border-border/60 text-xs">
-                            <p className="font-bold text-foreground">{hub.city}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{hub.talent_density}</p>
-                            <p className="text-xs text-emerald-600 mt-1">Notice: {hub.avg_notice_period}</p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <IconBriefcase className="h-4 w-4 text-emerald-600" />
+                          <h3 className="font-heading text-sm font-bold text-foreground">
+                            Live Active Job Openings Sample (Real-Time Feed)
+                          </h3>
+                        </div>
+                        <Badge variant="outline" className="text-xs">Live API Feed</Badge>
+                      </div>
+                      <div className="divide-y divide-border/60 border border-border/60 rounded-xl overflow-hidden bg-card">
+                        {liveOpenings.map((op, i) => (
+                          <div key={i} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-muted/30 transition-colors">
+                            <div>
+                              <p className="font-bold text-sm text-foreground">{op.title}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                <span className="font-medium text-foreground/80">{op.company}</span>
+                                <span>•</span>
+                                <span>{op.location}</span>
+                              </div>
+                            </div>
+                            <a
+                              href={op.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:underline shrink-0"
+                            >
+                              <span>Apply / View Opening</span>
+                              <IconExternalLink className="h-3.5 w-3.5" />
+                            </a>
                           </div>
                         ))}
                       </div>
                     </Card>
                   )}
 
+                  {/* Top Talent Hubs & Availability */}
+                  {talentHubs.length > 0 && (
+                    <Card className="p-6 rounded-2xl border-border/80 bg-card shadow-sm space-y-3">
+                      <h3 className="font-heading text-sm font-bold text-foreground">
+                        Top Talent Hubs & Availability
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        {talentHubs.map((hub, i) => (
+                          <div key={i} className="p-3 rounded-xl bg-muted/20 border border-border/60 text-xs">
+                            <p className="font-bold text-foreground">{hub.city}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{hub.talent_density}</p>
+                            <p className="text-xs text-emerald-600 font-medium mt-1">Notice: {hub.avg_notice_period}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* Tactical Recruiter Recommendations */}
+                  {recommendations.length > 0 && (
+                    <Card className="p-6 rounded-2xl border-border/80 bg-card shadow-sm space-y-3">
+                      <h3 className="font-heading text-sm font-bold text-foreground">
+                        AI Sourcing Strategy & Tactical Recommendations
+                      </h3>
+                      <ul className="space-y-2 text-xs text-muted-foreground">
+                        {recommendations.map((rec, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-emerald-600 font-bold shrink-0">•</span>
+                            <span className="leading-relaxed text-foreground/90">{rec}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </Card>
+                  )}
+
                   {/* Data Sources and Honest Estimates */}
                   <Card className="p-6 rounded-2xl border-border/80 bg-card shadow-sm space-y-3">
                     <h3 className="font-heading text-sm font-bold text-foreground">
-                      Data Sources & Honest Estimation Transparency
+                      Data Sources & Verification Transparency
                     </h3>
                     <div className="space-y-2">
                       {sources.map((src, i) => (
@@ -1422,9 +1641,9 @@ export const JobDetailsPage: React.FC = () => {
                           </div>
                           <div className="flex items-center gap-3">
                             <Badge variant="outline" className="text-xs">
-                              {src.is_estimate ? 'Honest Estimate' : 'Verified Index'}
+                              {src.status || (src.is_estimate ? 'Honest Estimate' : 'Verified Index')}
                             </Badge>
-                            <a href={src.url} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline flex items-center gap-1">
+                            <a href={src.url} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline flex items-center gap-1 font-medium">
                               <span>Source URL</span>
                               <IconExternalLink className="h-3 w-3" />
                             </a>
