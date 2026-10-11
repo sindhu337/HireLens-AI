@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { api, type JobDescription } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
 import {
   IconX,
   IconUpload,
@@ -53,6 +54,7 @@ export const CreateJobModal: React.FC<CreateJobModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'upload' | 'text'>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [pastedText, setPastedText] = useState('');
@@ -112,7 +114,7 @@ export const CreateJobModal: React.FC<CreateJobModalProps> = ({
       }
       setIsAnalyzing(true);
       try {
-        const job = await api.parseJdFile(selectedFile);
+        const job = await api.parseJdFile(selectedFile, user?.id);
         onSuccess(job);
         onClose();
       } catch (err: any) {
@@ -131,7 +133,7 @@ export const CreateJobModal: React.FC<CreateJobModalProps> = ({
       }
       setIsAnalyzing(true);
       try {
-        const job = await api.parseJdText(pastedText.trim());
+        const job = await api.parseJdText(pastedText.trim(), user?.id);
         onSuccess(job);
         onClose();
       } catch (err: any) {

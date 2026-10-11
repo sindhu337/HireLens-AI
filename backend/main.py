@@ -88,6 +88,32 @@ def decode_access_token(token: str) -> Optional[dict]:
     except Exception:
         return None
 
+def get_authenticated_user_id(
+    request: Optional[Request] = None,
+    authorization: Optional[str] = None,
+    explicit_user_id: Optional[str] = None
+) -> Optional[str]:
+    """Resolves authenticated user ID from Authorization header, Cookie, or explicit user ID."""
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+    if not token and request:
+        auth_hdr = request.headers.get("authorization")
+        if auth_hdr and auth_hdr.startswith("Bearer "):
+            token = auth_hdr.split(" ")[1]
+    if not token and request:
+        token = request.cookies.get("access_token")
+
+    if token:
+        payload = decode_access_token(token)
+        if payload and "sub" in payload:
+            return payload["sub"]
+
+    if explicit_user_id and explicit_user_id not in ("default_user", "usr_default", "undefined", "null", ""):
+        return explicit_user_id
+
+    return None
+
 def set_auth_cookie(response: Response, token: str, request: Optional[Request] = None):
     """Set cross-site compliant cookie for web clients."""
     is_https = False
@@ -314,20 +340,7 @@ def get_current_user(
     authorization: Optional[str] = Header(None),
     user_id: Optional[str] = None
 ):
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.split(" ")[1]
-    if not token:
-        token = request.cookies.get("access_token")
-
-    resolved_user_id = None
-    if token:
-        payload = decode_access_token(token)
-        if payload and "sub" in payload:
-            resolved_user_id = payload["sub"]
-
-    if not resolved_user_id:
-        resolved_user_id = user_id
+    resolved_user_id = get_authenticated_user_id(request, authorization, user_id)
 
     if not resolved_user_id:
         return {"authenticated": False, "user": None}
@@ -360,7 +373,14 @@ def get_current_user(
 # -------------------------------------------------------------
 
 @app.post("/api/jd/parse-file")
-async def parse_jd_file(file: UploadFile = File(...), user_id: str = Form("default_user")):
+async def parse_jd_file(
+    request: Request,
+    file: UploadFile = File(...),
+    user_id: Optional[str] = Form(None),
+    authorization: Optional[str] = Header(None)
+):
+    auth_uid = get_authenticated_user_id(request, authorization, user_id) or user_id or "usr_default"
+
     suffix = Path(file.filename).suffix.lower()
     if suffix not in [".pdf", ".docx", ".doc", ".txt"]:
         raise HTTPException(status_code=400, detail="Unsupported format. Upload PDF, DOCX, or TXT.")
@@ -383,10 +403,10 @@ async def parse_jd_file(file: UploadFile = File(...), user_id: str = Form("defau
     conn = database.get_connection()
     c = conn.cursor()
     c.execute(
-        """INSERT INTO job_descriptions (id, session_id, title, raw_text, role, required_skills, preferred_skills, experience_min, experience_max, location, work_mode, parsed_json)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO job_descriptions (id, session_id, user_id, title, raw_text, role, required_skills, preferred_skills, experience_min, experience_max, location, work_mode, parsed_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
-            file_id, user_id, parsed.get("role", "Software Role"), extracted_text,
+            file_id, auth_uid, auth_uid, parsed.get("role", "Software Role"), extracted_text,
             parsed.get("role"), json.dumps(parsed.get("required_skills", [])),
             json.dumps(parsed.get("preferred_skills", [])),
             parsed.get("experience_min", 3.0), parsed.get("experience_max", 7.0),
@@ -403,9 +423,15 @@ async def parse_jd_file(file: UploadFile = File(...), user_id: str = Form("defau
     return parsed
 
 @app.post("/api/jd/parse-text")
-def parse_jd_text(req: JDTextRequest):
+def parse_jd_text(
+    req: JDTextRequest,
+    request: Request,
+    authorization: Optional[str] = Header(None)
+):
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="Job description text cannot be empty.")
+
+    auth_uid = get_authenticated_user_id(request, authorization, req.user_id) or req.user_id or "usr_default"
 
     file_id = f"jd_{uuid.uuid4().hex[:8]}"
     parsed = ai_service.extract_jd_details(req.text)
@@ -413,10 +439,10 @@ def parse_jd_text(req: JDTextRequest):
     conn = database.get_connection()
     c = conn.cursor()
     c.execute(
-        """INSERT INTO job_descriptions (id, session_id, title, raw_text, role, required_skills, preferred_skills, experience_min, experience_max, location, work_mode, parsed_json)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO job_descriptions (id, session_id, user_id, title, raw_text, role, required_skills, preferred_skills, experience_min, experience_max, location, work_mode, parsed_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
-            file_id, req.user_id, parsed.get("role", "Software Role"), req.text,
+            file_id, auth_uid, auth_uid, parsed.get("role", "Software Role"), req.text,
             parsed.get("role"), json.dumps(parsed.get("required_skills", [])),
             json.dumps(parsed.get("preferred_skills", [])),
             parsed.get("experience_min", 3.0), parsed.get("experience_max", 7.0),
@@ -433,10 +459,18 @@ def parse_jd_text(req: JDTextRequest):
     return parsed
 
 @app.get("/api/jd/active")
-def get_active_jd():
+def get_active_jd(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    user_id: Optional[str] = None
+):
+    auth_uid = get_authenticated_user_id(request, authorization, user_id)
     conn = database.get_connection()
     c = conn.cursor()
-    c.execute("SELECT * FROM job_descriptions ORDER BY created_at DESC LIMIT 1")
+    if auth_uid:
+        c.execute("SELECT * FROM job_descriptions WHERE user_id = ? OR session_id = ? ORDER BY created_at DESC LIMIT 1", (auth_uid, auth_uid))
+    else:
+        c.execute("SELECT * FROM job_descriptions ORDER BY created_at DESC LIMIT 1")
     row = c.fetchone()
     conn.close()
 
@@ -451,11 +485,16 @@ def get_active_jd():
     return data
 
 @app.get("/api/jobs")
-def list_all_jobs(user_id: Optional[str] = None):
+def list_all_jobs(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    user_id: Optional[str] = None
+):
+    auth_uid = get_authenticated_user_id(request, authorization, user_id)
     conn = database.get_connection()
     c = conn.cursor()
-    if user_id:
-        c.execute("SELECT * FROM job_descriptions WHERE session_id = ? ORDER BY created_at DESC", (user_id,))
+    if auth_uid:
+        c.execute("SELECT * FROM job_descriptions WHERE user_id = ? OR session_id = ? ORDER BY created_at DESC", (auth_uid, auth_uid))
     else:
         c.execute("SELECT * FROM job_descriptions ORDER BY created_at DESC")
     rows = c.fetchall()
@@ -500,7 +539,12 @@ def get_job_by_id(job_id: str):
     return job
 
 @app.post("/api/candidates/load-sample")
-def load_sample_candidates(jd_id: Optional[str] = Form(None)):
+def load_sample_candidates(
+    request: Request,
+    jd_id: Optional[str] = Form(None),
+    authorization: Optional[str] = Header(None)
+):
+    auth_uid = get_authenticated_user_id(request, authorization) or "usr_default"
     sample_dir = Path(__file__).resolve().parent.parent / "sample_data"
     sample_files = [
         "Alex_Rivera_Senior_FullStack.pdf",
@@ -513,11 +557,22 @@ def load_sample_candidates(jd_id: Optional[str] = Form(None)):
     conn = database.get_connection()
     c = conn.cursor()
 
+    cand_user_id = auth_uid
     if not jd_id:
-        c.execute("SELECT id FROM job_descriptions ORDER BY created_at DESC LIMIT 1")
+        c.execute("SELECT id, user_id FROM job_descriptions WHERE user_id = ? OR session_id = ? ORDER BY created_at DESC LIMIT 1", (auth_uid, auth_uid))
         latest = c.fetchone()
+        if not latest:
+            c.execute("SELECT id, user_id FROM job_descriptions ORDER BY created_at DESC LIMIT 1")
+            latest = c.fetchone()
         if latest:
             jd_id = latest["id"]
+            if latest["user_id"]:
+                cand_user_id = latest["user_id"]
+    else:
+        c.execute("SELECT user_id FROM job_descriptions WHERE id = ?", (jd_id,))
+        jrow = c.fetchone()
+        if jrow and jrow["user_id"]:
+            cand_user_id = jrow["user_id"]
 
     processed = []
     successful = 0
@@ -534,10 +589,10 @@ def load_sample_candidates(jd_id: Optional[str] = Form(None)):
             raw_markdown = info.get("markdown") or file_parser.parse_resume_to_markdown(extracted_text, fname)
 
             c.execute(
-                """INSERT INTO candidates (id, jd_id, filename, file_type, file_path, raw_text, raw_markdown, name, email, phone, status)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO candidates (id, jd_id, session_id, user_id, filename, file_type, file_path, raw_text, raw_markdown, name, email, phone, status)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    cand_id, jd_id, fname, file_type, str(fpath),
+                    cand_id, jd_id, cand_user_id, cand_user_id, fname, file_type, str(fpath),
                     extracted_text, raw_markdown, info["name"], info["email"], info["phone"], "parsed"
                 )
             )
@@ -555,9 +610,9 @@ def load_sample_candidates(jd_id: Optional[str] = Form(None)):
             })
         except Exception as e:
             c.execute(
-                """INSERT INTO candidates (id, jd_id, filename, file_type, file_path, raw_text, raw_markdown, name, status, error_message)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (cand_id, jd_id, fname, "unknown", "", "", "", Path(fname).stem, "failed", str(e))
+                """INSERT INTO candidates (id, jd_id, session_id, user_id, filename, file_type, file_path, raw_text, raw_markdown, name, status, error_message)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (cand_id, jd_id, cand_user_id, cand_user_id, fname, "unknown", "", "", "", Path(fname).stem, "failed", str(e))
             )
             processed.append({
                 "id": cand_id,
@@ -585,7 +640,13 @@ def load_sample_candidates(jd_id: Optional[str] = Form(None)):
 # -------------------------------------------------------------
 
 @app.post("/api/cv/upload")
-async def upload_candidate_cvs(files: List[UploadFile] = File(...), jd_id: Optional[str] = Form(None)):
+async def upload_candidate_cvs(
+    request: Request,
+    files: List[UploadFile] = File(...),
+    jd_id: Optional[str] = Form(None),
+    authorization: Optional[str] = Header(None)
+):
+    auth_uid = get_authenticated_user_id(request, authorization) or "usr_default"
     total_received = len(files)
     successful_count = 0
     failed_count = 0
@@ -593,6 +654,13 @@ async def upload_candidate_cvs(files: List[UploadFile] = File(...), jd_id: Optio
 
     conn = database.get_connection()
     c = conn.cursor()
+
+    cand_user_id = auth_uid
+    if jd_id:
+        c.execute("SELECT user_id FROM job_descriptions WHERE id = ?", (jd_id,))
+        jrow = c.fetchone()
+        if jrow and jrow["user_id"]:
+            cand_user_id = jrow["user_id"]
 
     for file in files:
         cand_id = f"cand_{uuid.uuid4().hex[:8]}"
@@ -610,10 +678,10 @@ async def upload_candidate_cvs(files: List[UploadFile] = File(...), jd_id: Optio
             raw_markdown = info.get("markdown") or file_parser.parse_resume_to_markdown(extracted_text, file.filename)
             
             c.execute(
-                """INSERT INTO candidates (id, jd_id, filename, file_type, file_path, raw_text, raw_markdown, name, email, phone, status)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO candidates (id, jd_id, session_id, user_id, filename, file_type, file_path, raw_text, raw_markdown, name, email, phone, status)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    cand_id, jd_id, file.filename, file_type, str(saved_path),
+                    cand_id, jd_id, cand_user_id, cand_user_id, file.filename, file_type, str(saved_path),
                     extracted_text, raw_markdown, info["name"], info["email"], info["phone"], "parsed"
                 )
             )
@@ -632,9 +700,9 @@ async def upload_candidate_cvs(files: List[UploadFile] = File(...), jd_id: Optio
         except Exception as e:
             failed_count += 1
             c.execute(
-                """INSERT INTO candidates (id, jd_id, filename, file_type, file_path, raw_text, raw_markdown, name, status, error_message)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (cand_id, jd_id, file.filename, "unknown", "", "", "", Path(file.filename).stem, "failed", str(e))
+                """INSERT INTO candidates (id, jd_id, session_id, user_id, filename, file_type, file_path, raw_text, raw_markdown, name, status, error_message)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (cand_id, jd_id, cand_user_id, cand_user_id, file.filename, "unknown", "", "", "", Path(file.filename).stem, "failed", str(e))
             )
             processed_candidates.append({
                 "id": cand_id,
@@ -676,7 +744,13 @@ def list_candidates(jd_id: Optional[str] = None):
     return {"total": len(rows), "candidates": rows}
 
 @app.get("/api/candidates/overview")
-def get_candidates_overview(jd_id: Optional[str] = None):
+def get_candidates_overview(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    jd_id: Optional[str] = None,
+    user_id: Optional[str] = None
+):
+    auth_uid = get_authenticated_user_id(request, authorization, user_id)
     conn = database.get_connection()
     c = conn.cursor()
     query = """
@@ -686,10 +760,18 @@ def get_candidates_overview(jd_id: Optional[str] = None):
         LEFT JOIN job_descriptions j ON c.jd_id = j.id
         LEFT JOIN candidate_evaluations e ON (c.id = e.candidate_id AND (c.jd_id = e.jd_id OR e.jd_id IS NULL))
     """
+    conditions = []
     params = []
     if jd_id:
-        query += " WHERE c.jd_id = ?"
+        conditions.append("c.jd_id = ?")
         params.append(jd_id)
+    elif auth_uid:
+        conditions.append("(j.user_id = ? OR j.session_id = ? OR c.user_id = ? OR c.session_id = ?)")
+        params.extend([auth_uid, auth_uid, auth_uid, auth_uid])
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+
     query += " ORDER BY COALESCE(e.score, 0) DESC, c.created_at DESC"
     c.execute(query, tuple(params))
     rows = c.fetchall()
@@ -770,13 +852,21 @@ class CandidateRankRequest(BaseModel):
     jd_id: Optional[str] = None
 
 @app.post("/api/candidates/rank")
-def rank_candidates(body: Optional[CandidateRankRequest] = None, jd_id: Optional[str] = None):
+def rank_candidates(
+    request: Request,
+    body: Optional[CandidateRankRequest] = None,
+    jd_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None)
+):
     effective_jd_id = (body.jd_id if body and body.jd_id else None) or jd_id
+    auth_uid = get_authenticated_user_id(request, authorization)
     conn = database.get_connection()
     c = conn.cursor()
 
     if effective_jd_id:
         c.execute("SELECT * FROM job_descriptions WHERE id = ?", (effective_jd_id,))
+    elif auth_uid:
+        c.execute("SELECT * FROM job_descriptions WHERE user_id = ? OR session_id = ? ORDER BY created_at DESC LIMIT 1", (auth_uid, auth_uid))
     else:
         c.execute("SELECT * FROM job_descriptions ORDER BY created_at DESC LIMIT 1")
     jd_row = c.fetchone()
@@ -1006,12 +1096,19 @@ def correct_candidate_evidence(req: EvidenceCorrectionRequest):
 # -------------------------------------------------------------
 
 @app.get("/api/screening/questions")
-def get_screening_questions(jd_id: Optional[str] = None):
+def get_screening_questions(
+    request: Request,
+    jd_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None)
+):
+    auth_uid = get_authenticated_user_id(request, authorization)
     conn = database.get_connection()
     c = conn.cursor()
 
     if jd_id:
         c.execute("SELECT * FROM job_descriptions WHERE id = ?", (jd_id,))
+    elif auth_uid:
+        c.execute("SELECT * FROM job_descriptions WHERE user_id = ? OR session_id = ? ORDER BY created_at DESC LIMIT 1", (auth_uid, auth_uid))
     else:
         c.execute("SELECT * FROM job_descriptions ORDER BY created_at DESC LIMIT 1")
     jd_row = c.fetchone()
@@ -1050,12 +1147,20 @@ def get_screening_questions(jd_id: Optional[str] = None):
 # -------------------------------------------------------------
 
 @app.get("/api/market/insights")
-def get_market_insights(jd_id: Optional[str] = None, refresh: Optional[bool] = False):
+def get_market_insights(
+    request: Request,
+    jd_id: Optional[str] = None,
+    refresh: Optional[bool] = False,
+    authorization: Optional[str] = Header(None)
+):
+    auth_uid = get_authenticated_user_id(request, authorization)
     conn = database.get_connection()
     c = conn.cursor()
 
     if jd_id:
         c.execute("SELECT * FROM job_descriptions WHERE id = ?", (jd_id,))
+    elif auth_uid:
+        c.execute("SELECT * FROM job_descriptions WHERE user_id = ? OR session_id = ? ORDER BY created_at DESC LIMIT 1", (auth_uid, auth_uid))
     else:
         c.execute("SELECT * FROM job_descriptions ORDER BY created_at DESC LIMIT 1")
     jd_row = c.fetchone()
@@ -1091,20 +1196,31 @@ def get_market_insights(jd_id: Optional[str] = None, refresh: Optional[bool] = F
     return insights
 
 @app.post("/api/market/insights/refresh")
-def refresh_market_insights(jd_id: Optional[str] = None):
-    return get_market_insights(jd_id=jd_id, refresh=True)
+def refresh_market_insights(
+    request: Request,
+    jd_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None)
+):
+    return get_market_insights(request=request, jd_id=jd_id, refresh=True, authorization=authorization)
 
 # -------------------------------------------------------------
 # SEARCH STRINGS GENERATOR (NAUKRI & LINKEDIN)
 # -------------------------------------------------------------
 
 @app.get("/api/search-strings")
-def get_search_strings(jd_id: Optional[str] = None):
+def get_search_strings(
+    request: Request,
+    jd_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None)
+):
+    auth_uid = get_authenticated_user_id(request, authorization)
     conn = database.get_connection()
     c = conn.cursor()
 
     if jd_id:
         c.execute("SELECT * FROM job_descriptions WHERE id = ?", (jd_id,))
+    elif auth_uid:
+        c.execute("SELECT * FROM job_descriptions WHERE user_id = ? OR session_id = ? ORDER BY created_at DESC LIMIT 1", (auth_uid, auth_uid))
     else:
         c.execute("SELECT * FROM job_descriptions ORDER BY created_at DESC LIMIT 1")
     jd_row = c.fetchone()

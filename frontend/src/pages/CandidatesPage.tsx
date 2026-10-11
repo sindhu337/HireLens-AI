@@ -10,6 +10,7 @@ import {
   type Candidate,
   type JobDescription,
 } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
 import {
   IconUsers,
   IconSearch,
@@ -27,6 +28,7 @@ import {
 
 export const CandidatesPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [jobs, setJobs] = useState<JobDescription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,8 +41,8 @@ export const CandidatesPage: React.FC = () => {
     setIsLoading(true);
     try {
       const [candRes, jobRes] = await Promise.all([
-        api.getCandidatesOverview(),
-        api.getJobs(),
+        api.getCandidatesOverview(undefined, user?.id),
+        api.getJobs(user?.id),
       ]);
       setCandidates(candRes?.candidates || []);
       setJobs(jobRes?.jobs || []);
@@ -53,7 +55,7 @@ export const CandidatesPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [user?.id]);
 
   const filteredCandidates = candidates.filter((c) => {
     // Search query

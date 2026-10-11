@@ -94,7 +94,16 @@ def init_db():
     )
     """)
 
-    # Schema migration helpers for existing databases
+    try:
+        cursor.execute("ALTER TABLE job_descriptions ADD COLUMN user_id TEXT")
+    except Exception:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE candidates ADD COLUMN user_id TEXT")
+    except Exception:
+        pass
+
     try:
         cursor.execute("ALTER TABLE candidates ADD COLUMN raw_markdown TEXT")
     except Exception:

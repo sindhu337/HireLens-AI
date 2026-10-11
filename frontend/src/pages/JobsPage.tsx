@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { api, type JobDescription } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
 import { CreateJobModal } from '@/components/modals/CreateJobModal';
 import {
   IconPlus,
@@ -21,6 +22,7 @@ import {
 
 export const JobsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [jobs, setJobs] = useState<JobDescription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,7 +31,7 @@ export const JobsPage: React.FC = () => {
   const fetchJobs = async () => {
     setIsLoading(true);
     try {
-      const res = await api.getJobs();
+      const res = await api.getJobs(user?.id);
       setJobs(res.jobs || []);
     } catch (err) {
       console.error('Failed to load jobs:', err);
@@ -40,7 +42,7 @@ export const JobsPage: React.FC = () => {
 
   useEffect(() => {
     fetchJobs();
-  }, []);
+  }, [user?.id]);
 
   const filteredJobs = jobs.filter((j) => {
     const q = searchQuery.toLowerCase();

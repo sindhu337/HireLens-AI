@@ -71,8 +71,8 @@ export const DashboardLayout: React.FC = () => {
     try {
       const [mRes, jobsRes, candRes] = await Promise.allSettled([
         api.getMetrics(),
-        api.getJobs(),
-        api.getCandidatesOverview(),
+        api.getJobs(user?.id),
+        api.getCandidatesOverview(undefined, user?.id),
       ]);
       if (mRes.status === 'fulfilled') {
         setMetrics(mRes.value);
@@ -86,7 +86,7 @@ export const DashboardLayout: React.FC = () => {
     } catch (err) {
       console.error('Error fetching metadata', err);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     loadMetadata();

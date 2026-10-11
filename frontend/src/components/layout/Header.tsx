@@ -3,7 +3,6 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useClickOutside } from '@/hooks/use-click-outside';
 import type { User } from '@/lib/api';
 import {
-  IconRefresh,
   IconChevronDown,
   IconLogout,
 } from '@tabler/icons-react';
@@ -21,7 +20,6 @@ export interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   user,
-  onRefresh,
   onLogout,
 }) => {
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
@@ -38,18 +36,8 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Right: Refresh + Theme Switcher + Profile Dropdown */}
+      {/* Right: Theme Switcher + Profile Dropdown */}
       <div className="flex items-center gap-3">
-        {onRefresh && (
-          <button
-            onClick={onRefresh}
-            title="Refresh workspace"
-            className="h-9 w-9 rounded-xl border border-border/70 hover:bg-muted/70 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          >
-            <IconRefresh className="h-4 w-4" />
-          </button>
-        )}
-
         {/* Theme Switcher Toggle */}
         <ThemeToggle />
 

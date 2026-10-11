@@ -401,8 +401,11 @@ export const api = {
     const q = jdId ? `?jd_id=${encodeURIComponent(jdId)}` : '';
     return request<{ total: number; candidates: Candidate[] }>(`/cv/list${q}`);
   },
-  getCandidatesOverview: (jdId?: string) => {
-    const q = jdId ? `?jd_id=${encodeURIComponent(jdId)}` : '';
+  getCandidatesOverview: (jdId?: string, userId?: string) => {
+    const params = new URLSearchParams();
+    if (jdId) params.append('jd_id', jdId);
+    if (userId) params.append('user_id', userId);
+    const q = params.toString() ? `?${params.toString()}` : '';
     return request<{ total: number; candidates: Candidate[] }>(`/candidates/overview${q}`);
   },
   deleteCandidate: (candidateId: string) =>
