@@ -57,9 +57,8 @@ export const JobsPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border/60">
         <div>
-          <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight flex items-center gap-2.5">
-            <IconBriefcase className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
-            <span>Recruitment Jobs</span>
+          <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
+            Recruitment Jobs
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Manage your active job requisitions, candidate screening pipelines, and evaluation workflows

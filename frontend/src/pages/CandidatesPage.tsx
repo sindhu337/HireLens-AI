@@ -42,8 +42,8 @@ export const CandidatesPage: React.FC = () => {
         api.getCandidatesOverview(),
         api.getJobs(),
       ]);
-      setCandidates(candRes.candidates || []);
-      setJobs(jobRes.jobs || []);
+      setCandidates(candRes?.candidates || []);
+      setJobs(jobRes?.jobs || []);
     } catch (err) {
       console.error('Failed to load candidates:', err);
     } finally {
@@ -112,9 +112,8 @@ export const CandidatesPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border/60">
         <div>
-          <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight flex items-center gap-2.5">
-            <IconUsers className="h-7 w-7 text-emerald-600 dark:text-emerald-400 stroke-[2.2]" />
-            <span>Candidate Talent Pool</span>
+          <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
+            Candidate Talent Pool
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Browse and compare all candidates across your active jobs, with AI-driven evidence scores and skill profiles.

@@ -41,11 +41,7 @@ export const DashboardLayout: React.FC = () => {
   const activeTab: 'scheduled' | 'sent' | 'candidates' =
     location.pathname.includes('/dashboard/candidates')
       ? 'candidates'
-      : location.pathname.includes('/dashboard/sent') ||
-        location.pathname.includes('/dashboard/jobs') ||
-        location.pathname.includes('/dashboard/job/')
-      ? 'sent'
-      : 'scheduled';
+      : 'sent';
 
   // Alert & Confirmation Modal State
   const [modalConfig, setModalConfig] = useState<{

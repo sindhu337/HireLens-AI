@@ -973,30 +973,55 @@ def get_role_calibrated_market_data(role: str, location: str, min_exp: int, max_
             }
         ]
 
+    ambitionbox_slug = "data-analyst-salary" if "data analyst" in role_low or "analytics" in role_low else (
+        "data-scientist-salary" if "data scientist" in role_low or "machine learning" in role_low else (
+            "full-stack-developer-salary" if "full stack" in role_low or "fullstack" in role_low else (
+                "front-end-developer-salary" if "frontend" in role_low or "front-end" in role_low else (
+                    "backend-developer-salary" if "backend" in role_low or "back-end" in role_low else (
+                        "product-manager-salary" if "product manager" in role_low else (
+                            "devops-engineer-salary" if "devops" in role_low or "cloud" in role_low else (
+                                f"{role_slug}-salary"
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+    ambitionbox_url = f"https://www.ambitionbox.com/profile/{ambitionbox_slug}"
+
+    payscale_url = (
+        "https://www.payscale.com/research/IN/Job=Data_Analyst/Salary" if "data analyst" in role_low or "analytics" in role_low else (
+            "https://www.payscale.com/research/IN/Job=Data_Scientist/Salary" if "data scientist" in role_low else (
+                "https://www.payscale.com/research/IN/Job=Software_Engineer/Salary"
+            )
+        )
+    )
+
     sources = [
         {
-            "name": f"LinkedIn Economic Graph – {city_raw} Tech Hiring Index",
-            "url": f"https://www.linkedin.com/jobs/search/?keywords={urllib.parse.quote(role)}&location={urllib.parse.quote(location)}",
+            "name": f"AmbitionBox Tech Salary Benchmark ({role})",
+            "url": ambitionbox_url,
             "date": "Live Q1 2026",
+            "status": "Verified Compensation Profile"
+        },
+        {
+            "name": f"PayScale India Compensation Benchmark ({role})",
+            "url": payscale_url,
+            "date": "Live Q1 2026",
+            "status": "Verified Compensation Index"
+        },
+        {
+            "name": f"LinkedIn Jobs – {city_raw} Openings & Demand Index",
+            "url": f"https://www.linkedin.com/jobs/search/?keywords={urllib.parse.quote(role)}&location={urllib.parse.quote(location)}",
+            "date": "Live Real-Time Index",
             "status": "Verified Public Job Index"
         },
         {
-            "name": f"AmbitionBox Tech Salary Benchmark ({role})",
-            "url": f"https://www.ambitionbox.com/salaries/{role_slug}-salaries",
-            "date": "Updated 2026",
-            "status": "Real Compensation Benchmark"
-        },
-        {
-            "name": f"Naukri Talent Insights – {city_raw} Market",
+            "name": f"Naukri.com Active Openings Stream – {city_raw}",
             "url": f"https://www.naukri.com/{role_slug}-jobs-in-{city_slug}",
-            "date": "Live Real-Time Index",
+            "date": "Live Real-Time Postings",
             "status": "Active Hiring Stream"
-        },
-        {
-            "name": "Nasscom India Tech Talent Demand Index",
-            "url": "https://nasscom.in/knowledge-center/publications/tech-talent-trends",
-            "date": "February 2026",
-            "status": "Industry Standard Analysis"
         }
     ]
 

@@ -405,6 +405,11 @@ export const api = {
     const q = jdId ? `?jd_id=${encodeURIComponent(jdId)}` : '';
     return request<{ total: number; candidates: Candidate[] }>(`/candidates/overview${q}`);
   },
+  deleteCandidate: (candidateId: string) =>
+    request<{ success: boolean; message: string; candidate_id: string; jd_id?: string }>(
+      `/candidates/${candidateId}`,
+      { method: 'DELETE' }
+    ),
 
   // HireLens Candidate Ranking & Evidence Correction
   rankCandidates: (jdId?: string) =>

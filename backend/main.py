@@ -201,7 +201,7 @@ def signup_user(req: SignUpRequest, response: Response, request: Request):
         "id": user_id,
         "name": name,
         "email": email,
-        "avatarUrl": f"https://api.dicebear.com/7.x/avataaars/svg?seed={name}",
+        "avatarUrl": "https://api.dicebear.com/10.x/squircles/svg?seed=Felix",
         "senderAccounts": [],
         "slackIntegration": None
     }
@@ -242,7 +242,7 @@ def login_user(req: LoginRequest, response: Response, request: Request):
         "id": user["id"],
         "name": user["name"],
         "email": user["email"],
-        "avatarUrl": f"https://api.dicebear.com/7.x/avataaars/svg?seed={user['name']}",
+        "avatarUrl": "https://api.dicebear.com/10.x/squircles/svg?seed=Felix",
         "senderAccounts": [],
         "slackIntegration": None
     }
@@ -279,7 +279,7 @@ def dev_login_user(response: Response, request: Request):
         "id": user["id"],
         "name": user["name"],
         "email": user["email"],
-        "avatarUrl": f"https://api.dicebear.com/7.x/avataaars/svg?seed={user['name']}",
+        "avatarUrl": "https://api.dicebear.com/10.x/squircles/svg?seed=Felix",
         "senderAccounts": [],
         "slackIntegration": None
     }
@@ -345,7 +345,7 @@ def get_current_user(
         "id": user["id"],
         "name": user["name"],
         "email": user["email"],
-        "avatarUrl": f"https://api.dicebear.com/7.x/avataaars/svg?seed={user['name']}",
+        "avatarUrl": "https://api.dicebear.com/10.x/squircles/svg?seed=Felix",
         "senderAccounts": [],
         "slackIntegration": None
     }
@@ -706,6 +706,39 @@ def get_candidates_overview(jd_id: Optional[str] = None):
             item["raw_markdown"] = file_parser.parse_resume_to_markdown(item["raw_text"], item["filename"])
         results.append(item)
     return {"total": len(results), "candidates": results}
+
+@app.delete("/api/candidates/{candidate_id}")
+def delete_candidate(candidate_id: str):
+    conn = database.get_connection()
+    c = conn.cursor()
+    c.execute("SELECT id, name, file_path, jd_id FROM candidates WHERE id = ?", (candidate_id,))
+    cand = c.fetchone()
+    if not cand:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    # Delete evaluations first
+    c.execute("DELETE FROM candidate_evaluations WHERE candidate_id = ?", (candidate_id,))
+    # Delete candidate record
+    c.execute("DELETE FROM candidates WHERE id = ?", (candidate_id,))
+    conn.commit()
+    conn.close()
+
+    # Clean up file on disk if not in sample_data
+    if cand["file_path"]:
+        try:
+            fp = Path(cand["file_path"])
+            if fp.exists() and "sample_data" not in str(fp):
+                fp.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    return {
+        "success": True,
+        "message": f"Candidate {cand['name'] or candidate_id} removed successfully",
+        "candidate_id": candidate_id,
+        "jd_id": cand["jd_id"]
+    }
 
 # -------------------------------------------------------------
 # CANDIDATE RANKING & EVIDENCE CORRECTION
