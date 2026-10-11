@@ -19,6 +19,7 @@ import {
 } from '@tabler/icons-react';
 import { goeyToast } from 'goey-toast';
 import GradientWaves from '@/components/LoginBG';
+import { setStoredToken } from '@/lib/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001/api';
 
@@ -99,6 +100,10 @@ export const LoginPage: React.FC = () => {
         throw new Error(data.detail || data.message || 'Authentication failed. Please verify your credentials.');
       }
 
+      if (data.token) {
+        setStoredToken(data.token);
+      }
+
       goeyToast.success(isRegister ? 'Account created! Redirecting to dashboard...' : 'Login successful! Redirecting...');
       await refreshUser();
       navigate('/dashboard/scheduled');
@@ -128,6 +133,10 @@ export const LoginPage: React.FC = () => {
 
       if (!res.ok) {
         throw new Error(data.detail || data.message || `Failed to sign in as ${account.name}.`);
+      }
+
+      if (data.token) {
+        setStoredToken(data.token);
       }
 
       goeyToast.success(`Signed in as ${account.name}! Redirecting...`);

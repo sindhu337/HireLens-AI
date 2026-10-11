@@ -1,56 +1,85 @@
-# HireLens AI — Talent Acquisition Recruitment Suite
+# HireLens AI — Enterprise Talent Acquisition & Recruitment Intelligence
 
-HireLens AI is an AI-powered talent acquisition application designed to guide recruiters through a rigorous, objective 7-stage hiring workflow: recruiter authentication, job requisition intake, multi-format CV ingestion (PDF & DOCX), evidence-backed candidate ranking with strict anti-bias compliance and recruiter correction audits, 10 role-specific screening interview questions, hiring market intelligence benchmarks, and platform-tailored Boolean search query generators for Naukri and LinkedIn.
+HireLens AI is an AI-powered talent acquisition platform designed for technical recruiters and hiring managers. It streamlines end-to-end requisition intelligence across a structured 6-tab workspace: automated JD extraction, multi-format CV parsing (PDF & DOCX), evidence-backed candidate ranking with side-by-side markdown resume inspection and anti-bias auditing, 10 role-specific screening interview questions, real-time hiring market intelligence, and platform-tailored Boolean search strings for Naukri and LinkedIn.
 
 ---
 
-## 🌟 Key Features Across the 7 Workflow Stages
+## 🌟 Core Modules & 6-Tab Workspace Architecture
 
-1. **Stage 1: Recruiter Demo Authentication**
-   - Recruiter profile selection (e.g. Alex Vance, Senior Technical Recruiter) or custom login.
-   - Session persistence and recruiter badge visible across all views and audit logs.
-2. **Stage 2: Job Description Intake & Parsing**
-   - Upload PDF/DOCX job descriptions or paste raw text.
-   - Extracts target role, required core skills, preferred skills, experience range, location, and work mode.
-   - Includes 1-click sample JD loader.
-3. **Stage 3: Multi-Format CV Ingestion & Processing Verification**
-   - Native document extraction with **PyMuPDF** (`fitz`) for PDF files and **python-docx** for DOCX files.
-   - Real-time processing counts: Total Uploaded, Successfully Parsed, and Failed.
-   - Includes 1-click loader for **5 realistic test candidates** (3 PDF and 2 DOCX).
-4. **Stage 4: Candidate Ranking & Recruiter Evidence-Review**
-   - Objective 0–100 matching score based exclusively on verified skills, experience depth, and project accomplishments.
-   - **Strict Anti-Bias Compliance**: Excludes age, gender, names, photographs, and marital status from candidate scoring.
-   - **Evidence Review & Correction Audit**: Recruiter can review documented resume quotes, recover incorrectly penalized skills, adjust scores, and preserve a side-by-side audit of original vs. corrected evaluations.
-5. **Stage 5: 10 Structured Screening Interview Questions**
-   - Exactly 10 role-tailored technical, architectural, and behavioral questions.
-   - Concrete **Good-Answer Criteria** (rubrics explaining what recruiters should listen for).
-   - Category filtering and 1-click clipboard copy.
-6. **Stage 6: Talent Market & Compensation Benchmarks**
-   - Salary ranges with percentiles (25th entry baseline, 50th market median, 75th product tier).
-   - Comparable peer employers actively hiring (e.g., Razorpay, Swiggy, PhonePe).
-   - Talent density distribution across key hubs (Bengaluru, Hyderabad, Pune, NCR).
-   - Transparent citation of public benchmark sources with publication dates (Q1 2026) and honest estimate disclosures.
-7. **Stage 7: Naukri & LinkedIn Boolean Search Strings**
-   - Strict and broad Boolean search strings, plain-language queries, and recommended filters.
-   - Formatted specifically for **Naukri Resdex** and **LinkedIn Recruiter**.
-   - **Compliance Guarantee**: Strings are generated for manual copy-paste; zero scraping or credential bypass.
+### 1. Requisition Library & Candidate Hub
+- **Jobs Directory (`/dashboard/jobs`)**: View and manage all active job requisitions created by recruiters, with candidate counts and direct access to workspaces.
+- **Candidate Hub (`/dashboard/candidates`)**: Unified card grid of all evaluated candidates across requisitions with a dropdown filter to inspect specific requisitions.
+
+---
+
+### 2. The 6-Tab Job Workspace (`/dashboard/job/:id`)
+
+#### Tab 1: JD Overview & Extraction
+- **Flexible Intake**: Upload PDF/DOCX job descriptions or paste raw JD text.
+- **Structured Extraction**: AI extracts target role, required core skills, preferred skills, experience bracket, location, and work mode.
+- **1-Click Preload**: Quick-load sample production JDs (e.g., Full Stack Engineer, Data Analyst).
+
+#### Tab 2: Multi-Format CV Ingestion & Parsing
+- **Native Document Parsers**: High-fidelity text and layout extraction using **PyMuPDF** (`fitz`) for PDF and **python-docx** for DOCX files.
+- **Processing Verification**: Real-time counters showing Total Uploaded, Successfully Parsed, and Failed.
+- **Sample Candidate Pack**: 1-click loader for 5 realistic test candidate CVs (3 PDF + 2 DOCX) covering senior, mid, junior, and domain-transition profiles.
+
+#### Tab 3: Candidate Ranking & Evidence Verification
+- **Objective 0–100 Matching**: Ranks candidates based strictly on demonstrated skills, verified experience depth, and project impact.
+- **Anti-Bias Compliance**: Evaluator deliberately excludes demographic attributes (age, gender, ethnicity, marital status, photo).
+- **Interactive Markdown CV Viewer**: Displays the candidate's parsed resume in structured markdown with live evidence highlighting:
+  - **Unsupported Claim Flags**: Inspect highlighted statements in context to verify whether claims are backed by project accomplishments.
+  - **In-App Resume Search**: Real-time search with case-insensitive jump navigation.
+- **Recruiter Correction Audit**: Recruiters can review flagged claims, adjust scores, add/remove verified skills, and store permanent audit logs of original vs. corrected scores.
+- **Promise Toast Feedback**: Clicking **"Re-Rank All"** triggers an interactive promise toast with live loading and success states.
+
+#### Tab 4: 10 Structured Screening Interview Questions
+- Exactly **10 role-tailored technical, architectural, and behavioral screening questions**.
+- Includes concrete **Good-Answer Criteria** rubrics detailing what interviewers should listen for.
+- Category filtering and 1-click clipboard copy for applicant tracking systems (ATS).
+
+#### Tab 5: Real-Time Hiring Market Intelligence
+- **Role-Calibrated Compensation Benchmarks**: P25 entry baseline, P50 market median, and P75 top-tier salary benchmarks dynamically calibrated to the requisition's exact domain, experience bracket, and location.
+- **Active Peer Employers**: Real-time identification of companies actively hiring for the profile (e.g. Fractal, Tiger Analytics, Swiggy, Flipkart for Data Analyst; Razorpay, Atlassian, Postman for Full Stack).
+  - Clickable **"View Postings"** and **"Careers"** direct portal links.
+- **Live Job Board Deep Searches**: 1-click deep queries targeted to the role and location on **LinkedIn Jobs**, **Naukri India**, **Indeed**, and **Google Jobs**.
+- **Live Active Job Feed**: Samples live open job postings from public employment feeds (ArbeitNow API).
+- **On-Demand Refresh**: Interactive **"Refresh Live Market Data"** button with automatic cache invalidation.
+
+#### Tab 6: Boolean & Talent Sourcing Strings
+- **Platform-Tailored Queries**: Formatted specifically for **Naukri Resdex** and **LinkedIn Recruiter**.
+- Strict Boolean, broad Boolean, and plain-language queries with negative keywords and recommended filter settings.
+- **Compliance Guarantee**: Generated strictly for copy-paste sourcing—zero credential bypass or scraping.
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: React 19, Vite 8, TypeScript, Tailwind CSS v4, ShadCN UI components (`radix-ui`), Tabler Icons.
-- **Backend**: Python FastAPI, Uvicorn, SQLite (`hirelens.db`).
-- **Document Extractors**:
-  - `pymupdf` (PyMuPDF): High-fidelity PDF layout and text parsing.
-  - `python-docx`: DOCX paragraph and table parsing.
-- **AI Engine**:
-  - Google Gemini API (`google-genai` / `gemini-2.5-flash`), configurable via `GEMINI_API_KEY`.
-  - **Graceful Deterministic Offline Fallback**: In the absence of an API key or when offline, an intelligent heuristic rule-based engine operates seamlessly so the recruiter demo never breaks.
+| Component | Technologies |
+|---|---|
+| **Frontend** | React 19, Vite 8, TypeScript, Tailwind CSS v4, Radix UI, Tabler Icons, `goey-toast` |
+| **Backend** | Python 3.10+, FastAPI, Uvicorn, SQLite (`hirelens.db`), Pydantic |
+| **Document Processing** | `pymupdf` (PyMuPDF) for PDF extraction, `python-docx` for DOCX parsing |
+| **AI Synthesis** | Google Gemini API (`gemini-2.5-flash`), Groq API, Intelligent Fallback Heuristics |
+| **Live Feeds** | ArbeitNow public job feeds, LinkedIn/Naukri/Indeed/Google Jobs deep-query generators |
+| **Authentication** | Dual-mode: JWT Bearer Authorization headers + Cross-site SameSite=None secure cookies |
 
 ---
 
-## 🚀 Getting Started
+## 🌐 Production Deployment Architecture
+
+- **Frontend**: Hosted on **Vercel** (`https://hire-lens-ai-ten.vercel.app`)
+- **Backend**: Hosted on **Render** (`https://hirelens-ai-lsc4.onrender.com`)
+
+### Cross-Origin (CORS) & Authentication
+- FastAPI backend configured with CORS support for `https://hire-lens-ai-ten.vercel.app` and regex matching `https://.*\.vercel\.app` for preview deployments.
+- Cross-origin credentials supported via:
+  1. `Authorization: Bearer <token>` automatically attached to all API requests and stored in `localStorage`.
+  2. `SameSite=None; Secure=True` cookies for HTTPS environments.
+
+---
+
+## 🚀 Local Development Setup
 
 ### 1. Prerequisites
 - Python 3.10+ (tested on Python 3.14)
@@ -61,20 +90,21 @@ HireLens AI is an AI-powered talent acquisition application designed to guide re
 # Navigate to the backend directory
 cd backend
 
-# Activate the virtual environment
+# Create & activate virtual environment
 # Windows:
+python -m venv .venv
 .\.venv\Scripts\activate
 # Linux/macOS:
+python3 -m venv .venv
 source .venv/bin/activate
 
-# Install dependencies (already pre-installed in the workspace)
-pip install fastapi uvicorn python-multipart pymupdf python-docx pydantic google-genai aiofiles
+# Install dependencies
+pip install fastapi uvicorn python-multipart pymupdf python-docx pydantic google-genai aiofiles pyjwt
 
-# (Optional) Set your Gemini API key for online AI mode
-# Windows PowerShell:
-$env:GEMINI_API_KEY="your_api_key_here"
-# Linux/macOS:
-export GEMINI_API_KEY="your_api_key_here"
+# (Optional) Set your API keys in backend/.env:
+# GEMINI_API_KEY=your_gemini_key
+# GROQ_API_KEY=your_groq_key
+# CORS_ORIGINS=http://localhost:5173,https://hire-lens-ai-ten.vercel.app
 
 # Start the FastAPI server on port 8001
 uvicorn main:app --host 127.0.0.1 --port 8001 --reload
@@ -85,7 +115,7 @@ uvicorn main:app --host 127.0.0.1 --port 8001 --reload
 # In a new terminal, navigate to the frontend directory
 cd frontend
 
-# Install dependencies (already installed)
+# Install dependencies
 npm install
 
 # Start the Vite development server on port 5173
@@ -93,20 +123,23 @@ npm run dev
 ```
 
 ### 4. Open in Browser
-Visit **`http://127.0.0.1:5173`** in your browser.
+Visit **`http://localhost:5173`** (or `http://127.0.0.1:5173`).
 
 ---
 
-## 🧪 Testing the 5 Fictional Candidates
+## 🧪 Testing the Recruiter Pipeline
 
-To test the application with pre-generated multi-format test resumes:
-1. In Stage 2, click **"Load Sample Full-Stack JD"** and then **"Analyze & Extract Skills"**.
-2. In Stage 3, click **"Load 5 Fictional Test Candidates (3 PDF + 2 DOCX)"**.
-   - The system immediately parses:
-     - `Alex_Rivera_Senior_FullStack.pdf` (Senior match, ~91-95%)
-     - `Priya_Sharma_FullStack_Dev.docx` (Strong match, ~86%)
-     - `David_Chen_Frontend_Engineer.pdf` (Frontend transition, ~72%)
-     - `Amina_Mansoor_Backend_Data.docx` (Backend/Data, ~86%)
-     - `Marcus_Vance_Junior_WebDev.pdf` (Junior profile, ~36%)
-3. In Stage 4, click **"Rank All Uploaded Candidates"** to view rankings, inspect quotes, and test the **"Review Evidence"** modal to adjust scores and save recruiter notes.
-4. Proceed through Stages 5, 6, and 7 to explore the complete talent acquisition pipeline.
+1. **Sign In**: Use the pre-configured demo account (Sarah Connor, Senior Tech Recruiter) or create a new account.
+2. **Select or Create a Job**:
+   - Navigate to **Jobs** &rarr; Select an existing requisition (e.g. *Data Analyst* or *Senior Full Stack Engineer*), or click **"Create New Job"** to paste or upload a JD.
+3. **Upload or Preload Candidate CVs**:
+   - In **Tab 2 (CV Upload)**, click **"Load 5 Fictional Test Candidates (3 PDF + 2 DOCX)"** to ingest sample multi-format resumes.
+4. **Candidate Evaluation & Markdown Evidence Review**:
+   - In **Tab 3 (Candidate Ranking & Evidence Verification)**, review scores and flagged unsupported claims.
+   - Click **"Evidence Inspection"** to view the candidate's parsed resume in formatted Markdown with highlighted claim statements.
+   - Adjust scores and record recruiter correction notes to update the evaluation audit trail.
+   - Click **"Re-Rank All"** to test the live promise toast.
+5. **Explore Intelligence**:
+   - **Tab 4**: Review the 10 role-specific screening interview questions and rubrics.
+   - **Tab 5**: Inspect real-time market intelligence, salary benchmarks, active peer employers, and live job board links. Click **"Refresh Live Market Data"** to refresh on demand.
+   - **Tab 6**: Copy production-tested Boolean search strings for Naukri Resdex and LinkedIn Recruiter.

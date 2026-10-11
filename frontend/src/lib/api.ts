@@ -75,11 +75,27 @@ export interface ScheduleCampaignPayload {
   hourlyLimit?: number;
 }
 
+export function getStoredToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('hirelens_token');
+}
+
+export function setStoredToken(token: string | null) {
+  if (typeof window === 'undefined') return;
+  if (token) {
+    localStorage.setItem('hirelens_token', token);
+  } else {
+    localStorage.removeItem('hirelens_token');
+  }
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  const headers = {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...((options.headers as Record<string, string>) || {}),
   };
 
   const response = await fetch(url, {
@@ -91,7 +107,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.message || data.error || `Request failed with status ${response.status}`);
+    throw new Error(data.detail || data.message || data.error || `Request failed with status ${response.status}`);
   }
 
   return data as T;
@@ -293,8 +309,17 @@ export const api = {
   // Auth
   getMe: () => request<{ user: User }>('/auth/me'),
   getGoogleAuthUrl: () => request<{ url: string }>('/auth/google/url'),
-  devLogin: () => request<{ user: User }>('/auth/dev-login', { method: 'POST' }),
-  logout: () => request<{ message: string }>('/auth/logout', { method: 'POST' }),
+  devLogin: async () => {
+    const res = await request<{ user: User; token?: string }>('/auth/dev-login', { method: 'POST' });
+    if (res.token) {
+      setStoredToken(res.token);
+    }
+    return res;
+  },
+  logout: async () => {
+    setStoredToken(null);
+    return request<{ message: string }>('/auth/logout', { method: 'POST' });
+  },
 
   // HireLens Jobs
   getJobs: (userId?: string) => {
@@ -306,9 +331,11 @@ export const api = {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('user_id', userId);
+    const token = getStoredToken();
     const res = await fetch(`${API_BASE_URL}/jd/parse-file`, {
       method: 'POST',
       body: formData,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
       credentials: 'include',
     });
     if (!res.ok) {
@@ -333,9 +360,11 @@ export const api = {
     if (jdId) {
       formData.append('jd_id', jdId);
     }
+    const token = getStoredToken();
     const res = await fetch(`${API_BASE_URL}/cv/upload`, {
       method: 'POST',
       body: formData,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
       credentials: 'include',
     });
     if (!res.ok) {
@@ -352,9 +381,11 @@ export const api = {
     if (jdId) {
       formData.append('jd_id', jdId);
     }
+    const token = getStoredToken();
     const res = await fetch(`${API_BASE_URL}/candidates/load-sample`, {
       method: 'POST',
       body: formData,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
       credentials: 'include',
     });
     if (!res.ok) {

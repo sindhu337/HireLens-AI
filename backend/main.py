@@ -26,15 +26,33 @@ origins = [
     "http://127.0.0.1:5000",
     "http://localhost:8001",
     "http://127.0.0.1:8001",
+    "https://hire-lens-ai-ten.vercel.app",
+    "https://hirelens-ai-ten.vercel.app",
+    "https://hire-lens-ai.vercel.app",
+    "https://hirelens-ai.vercel.app",
+    "https://hirelens-ai-lsc4.onrender.com",
 ]
+
+# Allow additional origins from environment variable (comma-separated)
+extra_origins = os.getenv("CORS_ORIGINS", "")
+if extra_origins:
+    for o in extra_origins.split(","):
+        o_clean = o.strip()
+        if o_clean and o_clean not in origins:
+            origins.append(o_clean)
+
+frontend_url = os.getenv("FRONTEND_URL", "")
+if frontend_url and frontend_url.strip() not in origins:
+    origins.append(frontend_url.strip())
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?|https://.*\.vercel\.app|https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
@@ -46,7 +64,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 JWT_SECRET = os.getenv("JWT_SECRET", "hirelens_jwt_secret_key_2026_super_secure")
 JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Valid up to 1 hour
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # Valid up to 24 hours
 
 def hash_password(password: str) -> str:
     """Hash password using SHA-256 with a project salt."""
@@ -69,6 +87,26 @@ def decode_access_token(token: str) -> Optional[dict]:
         return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except Exception:
         return None
+
+def set_auth_cookie(response: Response, token: str, request: Optional[Request] = None):
+    """Set cross-site compliant cookie for web clients."""
+    is_https = False
+    if request:
+        proto = request.headers.get("x-forwarded-proto", "")
+        origin = request.headers.get("origin", "")
+        is_https = (request.url.scheme == "https") or (proto == "https") or origin.startswith("https://")
+    if os.getenv("RENDER") or os.getenv("ENVIRONMENT") == "production":
+        is_https = True
+
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        max_age=3600 * 24,  # 24 hours
+        httponly=False,
+        samesite="none" if is_https else "lax",
+        secure=True if is_https else False,
+        path="/"
+    )
 
 # -------------------------------------------------------------
 # PYDANTIC SCHEMAS
@@ -127,7 +165,7 @@ def get_system_status():
 # -------------------------------------------------------------
 
 @app.post("/api/auth/signup")
-def signup_user(req: SignUpRequest, response: Response):
+def signup_user(req: SignUpRequest, response: Response, request: Request):
     name = req.name.strip()
     email = req.email.strip().lower()
     password = req.password
@@ -157,15 +195,7 @@ def signup_user(req: SignUpRequest, response: Response):
     conn.close()
 
     token = create_access_token(user_id, email, name)
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        max_age=3600,
-        httponly=False,
-        samesite="lax",
-        secure=False,
-        path="/"
-    )
+    set_auth_cookie(response, token, request)
 
     user_data = {
         "id": user_id,
@@ -182,13 +212,13 @@ def signup_user(req: SignUpRequest, response: Response):
         "email": email,
         "token": token,
         "token_type": "bearer",
-        "expires_in": 3600,
+        "expires_in": 3600 * 24,
         "user": user_data,
         "message": "Account created successfully."
     }
 
 @app.post("/api/auth/login")
-def login_user(req: LoginRequest, response: Response):
+def login_user(req: LoginRequest, response: Response, request: Request):
     email = req.email.strip().lower()
     password = req.password
 
@@ -206,15 +236,7 @@ def login_user(req: LoginRequest, response: Response):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
 
     token = create_access_token(user["id"], user["email"], user["name"])
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        max_age=3600,
-        httponly=False,
-        samesite="lax",
-        secure=False,
-        path="/"
-    )
+    set_auth_cookie(response, token, request)
 
     user_data = {
         "id": user["id"],
@@ -231,13 +253,13 @@ def login_user(req: LoginRequest, response: Response):
         "email": user["email"],
         "token": token,
         "token_type": "bearer",
-        "expires_in": 3600,
+        "expires_in": 3600 * 24,
         "user": user_data,
         "message": f"Welcome back, {user['name']}!"
     }
 
 @app.post("/api/auth/dev-login")
-def dev_login_user(response: Response):
+def dev_login_user(response: Response, request: Request):
     conn = database.get_connection()
     c = conn.cursor()
     c.execute("SELECT id, name, email FROM users WHERE email = ? LIMIT 1", ("sarah.connor@talent.ai",))
@@ -251,15 +273,7 @@ def dev_login_user(response: Response):
         raise HTTPException(status_code=404, detail="No users found in database.")
 
     token = create_access_token(user["id"], user["email"], user["name"])
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        max_age=3600,
-        httponly=False,
-        samesite="lax",
-        secure=False,
-        path="/"
-    )
+    set_auth_cookie(response, token, request)
 
     user_data = {
         "id": user["id"],
@@ -274,14 +288,24 @@ def dev_login_user(response: Response):
         "id": user["id"],
         "token": token,
         "token_type": "bearer",
-        "expires_in": 3600,
+        "expires_in": 3600 * 24,
         "user": user_data,
         "message": "Dev login successful."
     }
 
 @app.post("/api/auth/logout")
-def logout_user(response: Response):
-    response.delete_cookie(key="access_token", path="/")
+def logout_user(response: Response, request: Request):
+    is_https = False
+    proto = request.headers.get("x-forwarded-proto", "")
+    origin = request.headers.get("origin", "")
+    if (request.url.scheme == "https") or (proto == "https") or origin.startswith("https://") or os.getenv("RENDER"):
+        is_https = True
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        samesite="none" if is_https else "lax",
+        secure=True if is_https else False
+    )
     return {"message": "Logged out successfully"}
 
 @app.get("/api/auth/me")
