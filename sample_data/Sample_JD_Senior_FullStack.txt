@@ -1,0 +1,29 @@
+Job Title: Senior Full Stack Engineer (React + Python)
+Location: Bengaluru, India (Hybrid)
+Experience Required: 4 - 7 years
+Employment Type: Full-time
+
+About the Role:
+We are looking for a Senior Full Stack Engineer to build and scale our modern enterprise cloud applications. You will collaborate closely with product management and engineering leads to design performant web architectures, robust RESTful APIs, and responsive user interfaces.
+
+Key Responsibilities:
+- Design and develop scalable web applications using React, TypeScript, and modern state management.
+- Build high-throughput REST APIs and microservices using Python (FastAPI / Django).
+- Architect relational database schemas using PostgreSQL or MySQL, optimizing complex queries.
+- Containerize services using Docker and manage CI/CD pipelines (GitHub Actions / GitLab CI).
+- Collaborate with cloud teams to deploy applications on AWS (EC2, S3, ECS, Lambda).
+- Participate in code reviews, automated unit testing (Jest, PyTest), and maintain clean code standards.
+
+Required Qualifications & Skills:
+- 4+ years of professional software engineering experience.
+- Strong proficiency in modern JavaScript/TypeScript and React.
+- Solid backend development experience in Python (FastAPI, Flask, or Django).
+- Hands-on experience with SQL databases (PostgreSQL or MySQL) and ORMs (SQLAlchemy, Prisma).
+- Proven knowledge of Docker containerization and CI/CD pipelines.
+- Experience with cloud providers, preferably AWS.
+- Strong problem-solving, clean code design, and cross-functional communication skills.
+
+Nice-to-Have / Preferred:
+- Experience with Redis caching and asynchronous messaging (Celery, Kafka, or RabbitMQ).
+- Familiarity with AI/LLM integrations or vector databases.
+- Prior experience in SaaS or B2B enterprise software development.
